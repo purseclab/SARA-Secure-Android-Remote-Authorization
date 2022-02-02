@@ -1,0 +1,103 @@
+type sskey.
+type spkey.
+type biosskey.
+type biospkey.
+type confsskey.
+type confspkey.
+type bioinput.
+type confinput.
+
+fun spk(bitstring, sskey): spkey.
+fun biospk(bitstring, biosskey): biospkey.
+fun confspk(bitstring, confsskey): confspkey.
+
+fun bioscan(biosskey): bioinput[private].
+fun confscan(confsskey,bitstring): confinput[private].
+
+reduc forall m:bitstring, ssk:confsskey; checkconfscan(confscan(ssk,m)) = m [private].
+
+
+
+fun sign(bitstring, sskey): bitstring.
+fun biosign(bitstring, biosskey, bioinput): bitstring.
+fun confsign(bitstring, confsskey, confinput): bitstring.
+
+
+reduc forall m: bitstring,n:bitstring, ssk: sskey; checksign(sign(m,ssk),spk(n,ssk)) = m.
+reduc forall m: bitstring,n:bitstring, ssk: biosskey; checkbiosign(biosign(m,ssk,bioscan(ssk)),biospk(n,ssk)) = m.
+reduc forall m: bitstring,n:bitstring, ssk: confsskey; checkconfsign(confsign(m,ssk,confscan(ssk,m)),confspk(n,ssk)) = m.
+
+free c:channel.
+free biometricinput:channel [private].
+free biometricoutput:channel.
+free confirmationinput:channel [private].
+free confirmationoutput:channel.
+free tempchan:channel.
+free userinteraction:channel.
+
+(*Other vars*)
+free bioSkey:biosskey.
+free confSkey:confsskey.
+(*events*)
+event userSeesPrompt(bitstring).
+event userConfirmsPrompt(bitstring).
+event userAuthenticated(bitstring).
+event biosigned(biosskey).
+event confsigned(confsskey).
+event serverconfirms(biospkey).
+event serveraccepts(bitstring).
+(*queries*)
+query a:biosskey,e:biospkey; inj-event(serverconfirms(e))==>(inj-event(biosigned(a)) ).
+query f:bitstring; inj-event(serveraccepts(f))==>( inj-event(userAuthenticated(f)) ).
+query f:bitstring; inj-event(serveraccepts(f))==>( inj-event(userSeesPrompt(f)) ).
+
+let accomplice(confSkey:confsskey) = 
+	in(confirmationoutput,confirmationprompt:bitstring);
+	let confin=confscan(confSkey,confirmationprompt) in
+	out(confirmationinput,confin).
+
+
+
+let user(bioout:bioinput) =
+	new expectedRequest:bitstring;
+	out(userinteraction,expectedRequest);
+	in(biometricoutput,biometricprompt:bitstring);
+	if expectedRequest = biometricprompt then
+		event userSeesPrompt(biometricprompt);
+		event userAuthenticated(biometricprompt);
+		out(biometricinput,bioout).
+    	
+	
+ 
+let client(bioSkey:biosskey, bioPkey:biospkey, bioChallenge:bitstring) =
+	in(userinteraction,clientPayReq:bitstring);
+	out(c,clientPayReq);
+	in(c,clientReqNonce:bitstring);
+	out(biometricoutput,clientPayReq);
+	!in(biometricinput,bioin:bioinput);
+	out(tempchan,bioin);
+	event biosigned(bioSkey);
+	let z = biosign((clientPayReq,clientReqNonce),bioSkey,bioin) in
+	out(c,z).
+
+
+	
+
+let server(bioPkey:biospkey, bioChallenge:bitstring) =
+	in(c,payReq:bitstring);
+	new reqNonce:bitstring;
+	out(c,reqNonce);
+	in(c,x:bitstring);
+	let (=payReq,=reqNonce) = checkbiosign(x,bioPkey) in
+	event serverconfirms(bioPkey);
+	event serveraccepts(payReq).
+
+
+
+
+process
+	new bioChallenge:bitstring;
+	let bioout = bioscan(bioSkey) in
+	out(c,bioChallenge);
+	let bioPkey = biospk(bioChallenge,bioSkey) in out(c,bioPkey);
+	( (!client(bioSkey,bioPkey,bioChallenge)) | (!server(bioPkey,bioChallenge)) | (!user(bioout)) )
