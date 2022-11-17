@@ -86,8 +86,13 @@ public class AttestationController {
             if (mainContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE) && Build.VERSION.SDK_INT >= 28) {
                 BioKGPS.setIsStrongBoxBacked(true);
             }
-            BioKGPS.setUserAuthenticationRequired(true);
-            BioKGPS.setUserAuthenticationValidityDurationSeconds(-1);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                BioKGPS.setUserAuthenticationParameters(120,KeyProperties.AUTH_BIOMETRIC_STRONG);
+            }
+            else {
+                BioKGPS.setUserAuthenticationRequired(true);
+                BioKGPS.setUserAuthenticationValidityDurationSeconds(-1);
+            }
             if (Build.VERSION.SDK_INT >= 28) {
                 BioKGPS.setUnlockedDeviceRequired(true);
             }

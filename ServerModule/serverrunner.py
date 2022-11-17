@@ -21,6 +21,7 @@ def initializeRegistration(user):
 	return myAttestationServer.getInitialRegistrationParameters(user)
 
 def verifyCertificateChain(user,certificateChain):
+	#Now uses Android 11 protocol
 	return (myAttestationServer.parseCertificateChain(user,certificateChain), myAttestationServer.getKeyProperties(user))
 
 def initializeTransaction(sender,receiver,amount):
